@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+    <title>ATM Transaction Simulator</title>
+
+    <style>
+        /* =====================================
+           GLOBAL
+        ===================================== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            color: #e9fff7;
+            background:
+                radial-gradient(
+                    circle at 80% 20%,
+                    rgba(0, 255, 170, 0.10),
+                    transparent 30%
+                ),
+                radial-gradient(
+                    circle at 15% 70%,
+                    rgba(0, 190, 130, 0.08),
+                    transparent 30%
+                ),
+                linear-gradient(
+                    135deg,
+                    #020806,
+                    #04130d,
+                    #020705
+                );
+            overflow-x: hidden;
+        }
+
+        /* Grid background */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(
+                    rgba(0, 255, 170, 0.035) 1px,
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(0, 255, 170, 0.035) 1px,
+                    transparent 1px
+                );
+            background-size: 55px 55px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        /* =====================================
+           HEADER
+        ===================================== */
+        header {
+            height: 90px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 6%;
+            background: rgba(2, 10, 7, 0.85);
+            border-bottom:
+                1px solid rgba(0, 255, 170, 0.12);
+            backdrop-filter: blur(15px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 45px;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #00d9a0,
+                    #007f65
+                );
+            font-size: 22px;
+            box-shadow:
+                0 0 25px rgba(0, 255, 170, 0.25);
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            color: white;
+            letter-spacing: 0.5px;
+        }
+
+        .logo h1 span {
+            color: #00e6a8;
+        }
+
+        .logo p {
+            font-size: 9px;
+            letter-spacing: 4px;
+            color: #5cbda3;
+            margin-top: 4px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #86cdbb;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 9px;
+            height: 9px;
+            background: #00e6a8;
+            border-radius: 50%;
+            box-shadow:
+                0 0 12px #00e6a8;
+            animation: pulse 2s infinite;
+        }
+
+        /* =====================================
+           MAIN
+        ===================================== */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logout-btn {
+            display: none;
+            padding: 10px 18px;
+            border: 1px solid rgba(255, 100, 100, 0.35);
+            border-radius: 9px;
+            background: rgba(255, 70, 70, 0.08);
+            color: #ff9b9b;
+            font-size: 12px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: #d94b4b;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 22px rgba(220, 60, 60, 0.20);
+        }
+
+        body.logged-in .logout-btn, body.logged-in .profile-btn { display: block; }
+        body.logged-in .login-box { display: none; }
+        .profile-btn { display:none; padding:10px 18px; border:1px solid rgba(0,230,168,.35); border-radius:9px; background:rgba(0,230,168,.08); color:#72f0ca; font-size:12px; font-weight:bold; letter-spacing:1px; cursor:pointer; transition:.3s ease; }
+        .profile-btn:hover { background:#00e6a8; color:#06130f; transform:translateY(-2px); }
+
+        body:not(.logged-in) .services,
+        body:not(.logged-in) .balance-box,
+        body:not(.logged-in) .history {
+            display: none;
+        }
+
+        body.logged-in .services,
+        body.logged-in .balance-box,
+        body.logged-in .history {
+            animation: fadeUp 0.7s ease;
+        }
+
+        .login-box.logged-in-state {
+            border-color: rgba(0, 230, 168, 0.45);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(0,230,168,0.08);
+        }
+
+        .login-success {
+            text-align: center;
+            color: #72f0ca;
+            font-size: 13px;
+            margin-top: 14px;
+            display: none;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 1150px;
+            margin: 50px auto;
+        }
+
+        /* =====================================
+           ATM CARD
+        ===================================== */
+        .atm-card {
+            position: relative;
+            width: 500px;
+            max-width: 100%;
+            min-height: 285px;
+            margin: 0 auto 50px;
+            padding: 30px;
+            border-radius: 25px;
+            overflow: hidden;
+            background:
+                radial-gradient(
+                    circle at 85% 15%,
+                    rgba(0, 255, 170, 0.20),
+                    transparent 30%
+                ),
+                linear-gradient(
+                    135deg,
+                    #071711,
+                    #0a2118,
+                    #030806
+                );
+            border:
+                1px solid rgba(0, 255, 170, 0.25);
+            box-shadow:
+                0 25px 60px rgba(0, 0, 0, 0.7),
+                0 0 35px rgba(0, 255, 170, 0.08);
+            transition: 0.5s ease;
+        }
+
+        .atm-card:hover {
+            transform:
+                translateY(-6px)
+                rotateX(2deg);
+            box-shadow:
+                0 30px 70px rgba(0, 0, 0, 0.8),
+                0 0 45px rgba(0, 255, 170, 0.16);
+        }
+
+        /* Decorative glow */
+        .atm-card::after {
+            content: "";
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            right: -70px;
+            bottom: -80px;
+            border-radius: 50%;
+            background: #00e6a8;
+            opacity: 0.07;
+            filter: blur(25px);
+        }
+
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bank-name {
+            color: #ffffff;
+            font-size: 21px;
+            font-weight: bold;
+        }
+
+        .bank-name span {
+            color: #00e6a8;
+        }
+
+        .contactless {
+            font-size: 25px;
+            color: #80dbc2;
+        }
+
+        /* Chip */
+        .chip {
+            width: 58px;
+            height: 43px;
+            margin-top: 25px;
+            border-radius: 9px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #d7d9bd,
+                    #747e69,
+                    #c9cda8
+                );
+            position: relative;
+            overflow: hidden;
+            box-shadow:
+                0 0 15px rgba(255,255,255,0.1);
+        }
+
+        .chip::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: #3d463c;
+            top: 50%;
+            left: 0;
+        }
+
+        .chip::after {
+            content: "";
+            position: absolute;
+            width: 1px;
+            height: 100%;
+            background: #3d463c;
+            left: 50%;
+            top: 0;
+        }
+
+        /* Card number */
+        .card-number {
+            display: flex;
+            gap: 15px;
+            margin-top: 28px;
+            font-size: 23px;
+            letter-spacing: 2px;
+            color: #f2fff9;
+            font-family: monospace;
+        }
+
+        .card-group {
+            min-width: 65px;
+        }
+
+        .card-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            margin-top: 25px;
+        }
+
+        .card-label {
+            font-size: 8px;
+            letter-spacing: 2px;
+            color: #679c8d;
+            margin-bottom: 4px;
+        }
+
+        .card-holder {
+            font-size: 13px;
+            color: #d8fff3;
+            letter-spacing: 1px;
+        }
+
+        .valid {
+            text-align: right;
+        }
+
+        /* =====================================
+           LOGIN
+        ===================================== */
+        .login-box {
+            max-width: 520px;
+            margin: auto;
+            padding: 35px;
+            border-radius: 25px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(9, 28, 21, 0.95),
+                    rgba(3, 13, 9, 0.95)
+                );
+            border:
+                1px solid rgba(0, 255, 170, 0.15);
+            box-shadow:
+                0 20px 50px rgba(0,0,0,0.5);
+            backdrop-filter: blur(20px);
+            animation: fadeUp 0.8s ease;
+        }
+
+        .login-box h2 {
+            text-align: center;
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 25px;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            color: #6da596;
+            font-size: 13px;
+            margin-bottom: 28px;
+        }
+
+        label {
+            display: block;
+            color: #a8d9ca;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        /* Four card inputs */
+        .card-inputs {
+            display: grid;
+            grid-template-columns:
+                repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .card-inputs input {
+            width: 100%;
+            padding: 14px 8px;
+            text-align: center;
+            background: #020907;
+            color: #eafff8;
+            border:
+                1px solid rgba(0, 255, 170, 0.20);
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 16px;
+            letter-spacing: 2px;
+            transition: 0.3s;
+        }
+
+        .card-inputs input:focus {
+            outline: none;
+            border-color: #00e6a8;
+            box-shadow:
+                0 0 18px rgba(0, 230, 168, 0.15);
+        }
+
+        .pin-input {
+            width: 100%;
+            padding: 14px;
+            background: #020907;
+            color: white;
+            border:
+                1px solid rgba(0, 255, 170, 0.20);
+            border-radius: 10px;
+            margin-bottom: 22px;
+            text-align: center;
+            font-size: 18px;
+            letter-spacing: 7px;
+            transition: 0.3s;
+        }
+
+        .pin-input:focus {
+            outline: none;
+            border-color: #00e6a8;
+            box-shadow:
+                0 0 18px rgba(0, 230, 168, 0.15);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background:
+                linear-gradient(
+                    90deg,
+                    #00b987,
+                    #00e6a8
+                );
+            color: #00130d;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow:
+                0 8px 25px rgba(0, 230, 168, 0.12);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-3px);
+            box-shadow:
+                0 12px 30px rgba(0, 230, 168, 0.28);
+        }
+
+        /* =====================================
+           SERVICE TITLE
+        ===================================== */
+        .section-title {
+            text-align: center;
+            margin: 65px 0 30px;
+            color: white;
+            font-size: 30px;
+        }
+
+        .section-title span {
+            color: #00e6a8;
+        }
+
+        .section-description {
+            text-align: center;
+            color: #679c8d;
+            margin-top: -18px;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        /* =====================================
+           ATM SERVICES
+        ===================================== */
+        .services {
+            display: grid;
+            grid-template-columns:
+                repeat(3, 1fr);
+            gap: 22px;
+        }
+
+        .service-card {
+            position: relative;
+            padding: 28px;
+            min-height: 220px;
+            border-radius: 20px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(10, 34, 25, 0.95),
+                    rgba(3, 15, 10, 0.95)
+                );
+            border:
+                1px solid rgba(0, 255, 170, 0.13);
+            overflow: hidden;
+            transition:
+                transform 0.5s cubic-bezier(.2,.8,.2,1),
+                border-color 0.4s,
+                box-shadow 0.4s;
+            animation:
+                floatCard 5s ease-in-out infinite;
+        }
+
+        /* Different animation delays */
+        .service-card:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+        .service-card:nth-child(3) {
+            animation-delay: 0.8s;
+        }
+        .service-card:nth-child(4) {
+            animation-delay: 1.2s;
+        }
+        .service-card:nth-child(5) {
+            animation-delay: 1.6s;
+        }
+        .service-card:nth-child(6) {
+            animation-delay: 2s;
+        }
+
+        /* Animated green light */
+        .service-card::before {
+            content: "";
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: #00e6a8;
+            opacity: 0;
+            filter: blur(45px);
+            top: -50px;
+            right: -40px;
+            transition: 0.5s;
+        }
+
+        .service-card:hover::before {
+            opacity: 0.18;
+        }
+
+        .service-card:hover {
+            transform:
+                translateY(-12px)
+                scale(1.02);
+            border-color:
+                rgba(0, 230, 168, 0.55);
+            box-shadow:
+                0 20px 45px rgba(0,0,0,0.6),
+                0 0 30px rgba(0,230,168,0.08);
+        }
+
+        /* Moving border light */
+        .service-card::after {
+            content: "";
+            position: absolute;
+            height: 2px;
+            width: 45%;
+            top: 0;
+            left: -50%;
+            background:
+                linear-gradient(
+                    90deg,
+                    transparent,
+                    #00e6a8,
+                    transparent
+                );
+            transition: 0.6s;
+        }
+
+        .service-card:hover::after {
+            left: 110%;
+        }
+
+        .service-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            background:
+                rgba(0, 230, 168, 0.08);
+            border:
+                1px solid rgba(0, 230, 168, 0.20);
+            font-size: 28px;
+            margin-bottom: 20px;
+            transition:
+                transform 0.4s,
+                box-shadow 0.4s;
+        }
+
+        .service-card:hover .service-icon {
+            transform:
+                rotate(-5deg)
+                scale(1.12);
+            box-shadow:
+                0 0 25px rgba(0,230,168,0.18);
+        }
+
+        .service-card h3 {
+            color: #eafff8;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .service-card p {
+            color: #6f9d90;
+            font-size: 13px;
+            line-height: 1.6;
+            margin-bottom: 22px;
+        }
+
+        .service-btn {
+            padding: 10px 16px;
+            border-radius: 8px;
+            background:
+                rgba(0, 230, 168, 0.08);
+            border:
+                1px solid rgba(0, 230, 168, 0.25);
+            color: #7be7ca;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .service-btn:hover {
+            background: #00c995;
+            color: #00130d;
+            transform: translateX(4px);
+            box-shadow:
+                0 0 18px rgba(0,230,168,0.25);
+        }
+/* =====================================
+           TRANSACTION HISTORY
+        ===================================== */
+        .history {
+            margin-top: 30px;
+            padding: 30px;
+            border-radius: 22px;
+            background:
+                rgba(5, 20, 14, 0.9);
+            border:
+                1px solid rgba(0,230,168,0.12);
+            overflow-x: auto;
+        }
+
+        .history h2 {
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th,
+        td {
+            padding: 14px;
+            text-align: left;
+            border-bottom:
+                1px solid rgba(0,230,168,0.08);
+        }
+
+        th {
+            color: #00dba1;
+            font-size: 13px;
+        }
+
+        td {
+            color: #7fa99c;
+            font-size: 13px;
+        }
+
+        /* =====================================
+           SECURITY
+        ===================================== */
+        .security {
+            margin-top: 30px;
+            padding: 22px;
+            border-radius: 15px;
+            background:
+                rgba(0, 230, 168, 0.04);
+            border:
+                1px solid rgba(0,230,168,0.12);
+        }
+
+        .security h3 {
+            color: #00e6a8;
+            margin-bottom: 8px;
+        }
+
+        .security p {
+            color: #719b8e;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* =====================================
+           FOOTER
+        ===================================== */
+        footer {
+            margin-top: 70px;
+            padding: 30px;
+            text-align: center;
+            background: #020604;
+            border-top:
+                1px solid rgba(0,230,168,0.1);
+            color: #527c6e;
+            font-size: 12px;
+        }
+
+        /* =====================================
+           ANIMATIONS
+        ===================================== */
+        @keyframes pulse {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(0.7);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes floatCard {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-4px);
+            }
+        }
+
+        /* =====================================
+           RESPONSIVE
+        ===================================== */
+        @media (max-width: 850px) {
+            .services {
+                grid-template-columns:
+                    repeat(2, 1fr);
+            }
+            .status {
+                display: none;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header {
+                height: 75px;
+                padding: 0 20px;
+            }
+
+            .logo h1 {
+                font-size: 16px;
+            }
+
+            .container {
+                width: 94%;
+                margin-top: 30px;
+            }
+
+            .atm-card {
+                min-height: 250px;
+                padding: 22px;
+            }
+
+            .card-number {
+                gap: 8px;
+                font-size: 17px;
+            }
+
+            .card-group {
+                min-width: 55px;
+            }
+
+            .login-box {
+                padding: 25px 20px;
+            }
+
+            .services {
+                grid-template-columns: 1fr;
+            }
+
+            .section-title {
+                font-size: 25px;
+            }
+
+            .header-actions {
+                gap: 8px;
+            }
+
+            .logout-btn {
+                padding: 8px 11px;
+                font-size: 10px;
+            }
+        }
+
+        /* =====================================
+           SERVICE MODALS (new — same visual
+           language as .login-box / .pin-input)
+        ===================================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(1, 6, 4, 0.78);
+            backdrop-filter: blur(6px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+            animation: fadeUp 0.25s ease;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+        }
+
+        .modal-box {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            padding: 32px;
+            border-radius: 22px;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(9, 28, 21, 0.98),
+                    rgba(3, 13, 9, 0.98)
+                );
+            border: 1px solid rgba(0, 230, 168, 0.28);
+            box-shadow:
+                0 25px 60px rgba(0, 0, 0, 0.7),
+                0 0 35px rgba(0, 255, 170, 0.10);
+            animation: fadeUp 0.35s ease;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 30px;
+            height: 30px;
+            border: 1px solid rgba(0, 230, 168, 0.25);
+            border-radius: 8px;
+            background: rgba(0, 230, 168, 0.06);
+            color: #7be7ca;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+        }
+
+        .modal-close:hover {
+            background: #00c995;
+            color: #00130d;
+        }
+
+        .modal-icon {
+            width: 54px;
+            height: 54px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            background: rgba(0, 230, 168, 0.08);
+            border: 1px solid rgba(0, 230, 168, 0.20);
+            font-size: 26px;
+            margin-bottom: 16px;
+        }
+
+        .modal-box h3 {
+            color: #ffffff;
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .modal-sub {
+            color: #6da596;
+            font-size: 13px;
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        .modal-field {
+            margin-bottom: 18px;
+        }
+
+        .modal-field label {
+            color: #a8d9ca;
+            font-size: 12px;
+            margin-bottom: 7px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 13px 14px;
+            background: #020907;
+            color: #eafff8;
+            border: 1px solid rgba(0, 255, 170, 0.20);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: 0.3s;
+        }
+
+        .modal-input:focus {
+            outline: none;
+            border-color: #00e6a8;
+            box-shadow: 0 0 18px rgba(0, 230, 168, 0.15);
+        }
+
+        .modal-error {
+            color: #ff9b9b;
+            font-size: 12px;
+            margin-top: -10px;
+            margin-bottom: 14px;
+            min-height: 14px;
+        }
+
+        .modal-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #00b987, #00e6a8);
+            color: #00130d;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 8px 25px rgba(0, 230, 168, 0.12);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 230, 168, 0.28);
+        }
+
+        .modal-btn.secondary {
+            background: rgba(0, 230, 168, 0.08);
+            color: #7be7ca;
+            border: 1px solid rgba(0, 230, 168, 0.25);
+            box-shadow: none;
+            margin-top: 10px;
+        }
+
+        .modal-btn.secondary:hover {
+            background: rgba(0, 230, 168, 0.16);
+            transform: none;
+        }
+
+        /* Larger profile window (keeps the user on the dashboard) */
+        .modal-box.profile-modal-box {
+            max-width: 560px;
+            padding: 38px;
+        }
+        .profile-modal-box .modal-row {
+            padding: 15px 0;
+            font-size: 14px;
+        }
+        .profile-modal-box .modal-row span:last-child {
+            text-align: right;
+            margin-left: 16px;
+            overflow-wrap: anywhere;
+        }
+        @media (max-width: 600px) {
+            .modal-box.profile-modal-box { padding: 28px 22px; }
+        }
+
+        .modal-result {
+            text-align: center;
+        }
+
+        .modal-result .result-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            background: rgba(0, 230, 168, 0.10);
+            border: 1px solid rgba(0, 230, 168, 0.3);
+        }
+
+        .modal-result.is-error .result-icon {
+            background: rgba(255, 90, 90, 0.10);
+            border-color: rgba(255, 100, 100, 0.35);
+            color: #ff9b9b;
+        }
+
+        .modal-result h3 {
+            text-align: center;
+        }
+
+        .modal-amount {
+            font-size: 30px;
+            font-weight: bold;
+            color: #72f0ca;
+            text-align: center;
+            margin: 14px 0;
+            text-shadow: 0 0 20px rgba(0,230,168,0.18);
+        }
+
+        .modal-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0,230,168,0.08);
+            font-size: 13px;
+            color: #9fcabb;
+        }
+
+        .modal-row span:last-child {
+            color: #eafff8;
+            font-weight: bold;
+        }
+    
+        /* The balance summary is shown on the separate Profile page, not the dashboard. */
+        .balance-box { display: none !important; }
+    </style>
+</head>
+
+<body>
+
+    <!-- =====================================
+         HEADER
+    ====================================== -->
+    <header>
+        <div class="logo">
+            <div class="logo-icon">
+                🏦
+            </div>
+            <div>
+                <h1>
+                    Smart<span>ATM</span>
+                </h1>
+                <p>
+                    SECURE BANKING
+                </p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <div class="status">
+                <span class="status-dot"></span>
+                ATM ONLINE
+            </div>
+            <button id="profileBtn" class="profile-btn" type="button">PROFILE</button>
+        </div>
+    </header>
+
+    <main class="container">
+
+        <!-- =====================================
+             ATM CARD
+        ====================================== -->
+        <div class="atm-card">
+            <div class="card-top">
+                <div class="bank-name">
+                    Smart<span>Bank</span>
+                </div>
+                <div class="contactless">
+                    ◉))
+                </div>
+            </div>
+
+            <div class="chip"></div>
+
+            <!-- Four groups -->
+            <div class="card-number">
+                <span class="card-group" id="cardDisplay1">0000</span>
+                <span class="card-group" id="cardDisplay2">0000</span>
+                <span class="card-group" id="cardDisplay3">0000</span>
+                <span class="card-group" id="cardDisplay4">0000</span>
+            </div>
+
+            <div class="card-bottom">
+                <div>
+                    <div class="card-label">CARD HOLDER</div>
+                    <div class="card-holder">VALUED CUSTOMER</div>
+                </div>
+
+                <div class="valid">
+                    <div class="card-label">VALID THRU</div>
+                    <div class="card-holder">12/29</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =====================================
+             LOGIN
+        ====================================== -->
+        <section class="login-box">
+            <h2>🔐 ATM Login</h2>
+            <p class="login-subtitle">Enter your card details to continue</p>
+
+            <form id="loginForm">
+                <label>Card Number</label>
+
+                <!-- FOUR CARD NUMBER BOXES -->
+                <div class="card-inputs">
+                    <input type="text" maxlength="4" inputmode="numeric" class="cardInput" placeholder="0000">
+                    <input type="text" maxlength="4" inputmode="numeric" class="cardInput" placeholder="0000">
+                    <input type="text" maxlength="4" inputmode="numeric" class="cardInput" placeholder="0000">
+                    <input type="text" maxlength="4" inputmode="numeric" class="cardInput" placeholder="0000">
+                </div>
+
+                <label>4-Digit PIN</label>
+                <input type="password" maxlength="4" inputmode="numeric" class="pin-input" placeholder="••••">
+
+                <button type="submit" class="login-btn">LOGIN SECURELY →</button>
+            </form>
+            <div id="loginSuccess" class="login-success">✓ Logged in successfully</div>
+        </section>
+
+        <!-- =====================================
+             SERVICES
+        ====================================== -->
+        <h2 class="section-title">ATM <span>Services</span></h2>
+        <p class="section-description">Choose a service to manage your account</p>
+
+        <section class="services">
+
+            <!-- Balance -->
+            <div class="service-card">
+                <div class="service-icon">💰</div>
+                <h3>Balance Inquiry</h3>
+                <p>Check your current available account balance instantly.</p>
+                <button id="checkBalanceBtn" class="service-btn" type="button">Check Balance →</button>
+            </div>
+
+            <!-- Withdrawal -->
+            <div class="service-card">
+                <div class="service-icon">💵</div>
+                <h3>Cash Withdrawal</h3>
+                <p>Withdraw cash securely from your bank account.</p>
+                <button id="withdrawBtn" class="service-btn" type="button">Withdraw Cash →</button>
+            </div>
+
+            <!-- Deposit -->
+            <div class="service-card">
+                <div class="service-icon">💳</div>
+                <h3>Cash Deposit</h3>
+                <p>Deposit money directly into your account.</p>
+                <button id="depositBtn" class="service-btn" type="button">Deposit Cash →</button>
+            </div>
+
+            <!-- Fund Transfer -->
+            <div class="service-card">
+                <div class="service-icon">🔁</div>
+                <h3>Fund Transfer</h3>
+                <p>Transfer money to another SmartATM account.</p>
+                <button id="transferBtn" class="service-btn" type="button">Transfer Funds →</button>
+            </div>
+
+            <!-- Change PIN -->
+            <div class="service-card">
+                <div class="service-icon">🔑</div>
+                <h3>Change PIN</h3>
+                <p>Update your PIN for improved account security.</p>
+                <button id="changePinBtn" class="service-btn" type="button">Change PIN →</button>
+            </div>
+
+            <!-- Currency Converter (added; existing services are unchanged) -->
+            <div class="service-card">
+                <div class="service-icon">💱</div>
+                <h3>Currency Converter</h3>
+                <p>Convert between Indian Rupee, US Dollar, Euro, Pound and Yen.</p>
+                <button id="currencyConverterBtn" class="service-btn" type="button">Convert Currency →</button>
+            </div>
+
+        </section>
+
+        <!-- =====================================
+             BALANCE
+        ====================================== -->
+<!-- =====================================
+             TRANSACTION HISTORY
+        ====================================== -->
+        <section class="history">
+            <h2>📜 Recent Transactions</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date &amp; Time</th>
+                        <th>Transaction</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody id="historyBody">
+                    <tr id="historyEmptyRow">
+                        <td colspan="3" style="text-align:center; color:#4d7366;">No transactions yet</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- =====================================
+             SECURITY
+        ====================================== -->
+        <section class="security">
+            <h3>🛡️ Security Reminder</h3>
+            <p>Never share your ATM PIN, OTP, CVV or card details with anyone. Always cover the keypad while entering your PIN.</p>
+        </section>
+
+    </main>
+
+    <!-- =====================================
+         FOOTER
+    ====================================== -->
+    <footer>
+        <p>© 2026 SmartATM Transaction Simulator</p>
+        <p>Secure • Fast • Reliable • Available 24/7</p>
+    </footer>
+
+    <!-- =====================================
+         SERVICE MODAL (shared overlay, same
+         visual language as the login card)
+    ====================================== -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <button class="modal-close" id="modalClose" type="button">✕</button>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- =====================================
+         JAVASCRIPT
+    ====================================== -->
+    <script>
+'use strict';
+const account = { balance: 0, pin: '', loggedIn: false, cardNumber: '', accountNumber: '', holderName: '' };
+const cardInputs = [...document.querySelectorAll('.cardInput')];
+const pinInput = document.querySelector('.pin-input');
+const loginForm = document.getElementById('loginForm');
+const loginBox = document.querySelector('.login-box');
+const balanceDisplay = document.querySelector('.balance-box .balance');
+const accountLast4 = document.getElementById('accountLast4');
+const loginSuccess = document.getElementById('loginSuccess');
+const historyBody = document.getElementById('historyBody');
+const modalOverlay = document.getElementById('modalOverlay');
+const modalContent = document.getElementById('modalContent');
+const modalClose = document.getElementById('modalClose');
+
+function formatINR(amount) {
+  return '₹' + Number(amount || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function updateBalance() {
+  if (balanceDisplay) balanceDisplay.textContent = formatINR(account.loggedIn ? account.balance : 0);
+  if (accountLast4) accountLast4.textContent = account.loggedIn ? account.cardNumber.slice(-4) : '0000';
+}
+function updateCardDisplay() {
+  cardInputs.forEach((input, i) => {
+    document.getElementById('cardDisplay' + (i + 1)).textContent = input.value.padEnd(4, '•');
+  });
+}
+cardInputs.forEach((input, index) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(0, 4);
+    if (input.value.length === 4 && index < cardInputs.length - 1) cardInputs[index + 1].focus();
+    updateCardDisplay();
+  });
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Backspace' && !input.value && index > 0) cardInputs[index - 1].focus();
+  });
+});
+async function api(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    ...options,
+    headers: { ...(options.body ? {'Content-Type':'application/json'} : {}), ...(options.headers || {}) }
+  });
+  let data = {};
+  try { data = await response.json(); } catch (_) { data = {}; }
+  if (!response.ok) throw new Error(data.error || data.message || 'Request failed. Please try again.');
+  return data;
+}
+function openModal(html) { modalContent.innerHTML = html; modalOverlay.classList.add('open'); }
+function closeModal() { modalOverlay.classList.remove('open'); modalContent.innerHTML = ''; modalContent.parentElement.classList.remove('profile-modal-box'); }
+modalClose.addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', event => { if (event.target === modalOverlay) closeModal(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
+function requireLogin() {
+  if (account.loggedIn) return true;
+  alert('Please login first to use ATM services.');
+  loginBox.scrollIntoView({behavior:'smooth', block:'center'});
+  return false;
+}
+function setLoggedIn(accountData, cardNumber, pin) {
+  account.loggedIn = true;
+  account.cardNumber = accountData.cardNumber || cardNumber;
+  account.accountNumber = accountData.accountNumber || '';
+  account.pin = pin || '';
+  account.balance = Number(accountData.balance || 0);
+  account.holderName = accountData.holderName || 'Valued Customer';
+  document.body.classList.add('logged-in');
+  loginBox.classList.add('logged-in-state');
+  loginSuccess.style.display = 'block';
+  document.querySelector('.card-holder').textContent = account.holderName.toUpperCase();
+  updateBalance();
+}
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const cardNumber = cardInputs.map(input => input.value).join('');
+  const pin = pinInput.value;
+  if (!/^\d{16}$/.test(cardNumber)) { alert('Please enter a valid 16-digit card number.'); return; }
+  if (!/^\d{4}$/.test(pin)) { alert('Please enter a valid 4-digit PIN.'); return; }
+  const submitButton = loginForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  try {
+    const data = await api('/api/login', {method:'POST', body:JSON.stringify({cardNumber, pin})});
+    setLoggedIn(data.account, cardNumber, pin);
+    await Promise.all([refreshBalance(), loadTransactions()]);
+    alert('Login successful! Welcome to SmartATM.');
+  } catch (error) { alert(error.message || 'Could not connect to the Flask server. Run python app.py first.'); }
+  finally { submitButton.disabled = false; }
+});
+async function refreshBalance() {
+  const data = await api('/api/balance');
+  account.balance = Number(data.balance || 0);
+  if (data.holderName) account.holderName = data.holderName;
+  if (data.accountNumber) account.accountNumber = data.accountNumber;
+  updateBalance();
+  return data;
+}
+async function loadTransactions() {
+  if (!account.loggedIn) return;
+  try {
+    const data = await api('/api/history');
+    const transactions = data.transactions || [];
+    historyBody.replaceChildren();
+    if (!transactions.length) {
+      historyBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#4d7366;">No transactions yet</td></tr>';
+      return;
+    }
+    transactions.forEach(tx => {
+      const tr = document.createElement('tr');
+      const type = String(tx.type || 'Transaction');
+      const credit = type === 'Cash Deposit' || type === 'Fund Transfer Received';
+      const date = tx.createdAt ? new Date(tx.createdAt.replace(' ', 'T') + (tx.createdAt.includes('Z') ? '' : 'Z')).toLocaleString('en-IN') : '—';
+      const dateCell = document.createElement('td'); dateCell.textContent = date;
+      const typeCell = document.createElement('td'); typeCell.textContent = type + (tx.note ? ' — ' + tx.note : '');
+      const amountCell = document.createElement('td');
+      amountCell.textContent = (credit ? '+ ' : '- ') + formatINR(tx.amount);
+      amountCell.style.color = credit ? '#72f0ca' : '#ff9b9b'; amountCell.style.fontWeight = 'bold';
+      tr.append(dateCell, typeCell, amountCell); historyBody.appendChild(tr);
+    });
+  } catch (error) { console.error('Could not load transaction history:', error); }
+}
+async function logoutUser() {
+  try { await api('/api/logout', {method:'POST'}); }
+  catch (error) { console.error('Logout request failed:', error); }
+  account.balance = 0; account.pin = ''; account.loggedIn = false; account.cardNumber = ''; account.accountNumber = ''; account.holderName = '';
+  document.body.classList.remove('logged-in'); loginBox.classList.remove('logged-in-state'); loginSuccess.style.display = 'none';
+  document.querySelector('.card-holder').textContent = 'VALUED CUSTOMER';
+  loginForm.reset(); cardInputs.forEach(input => input.value = ''); updateCardDisplay(); updateBalance();
+  historyBody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#4d7366;">No transactions yet</td></tr>';
+  closeModal(); window.scrollTo({top:0, behavior:'smooth'});
+}
+document.getElementById('profileBtn').addEventListener('click', async () => {
+  if (!requireLogin()) return;
+  try { await refreshBalance(); } catch (error) { console.error('Could not refresh profile balance:', error); }
+  modalContent.parentElement.classList.add('profile-modal-box');
+  const maskedCard = '•••• •••• •••• ' + account.cardNumber.slice(-4);
+  openModal(`<div class="modal-icon">👤</div><h3>My Profile</h3><p class="modal-sub">Your SmartATM account information</p><div class="modal-row"><span>Account Holder</span><span>${escapeHTML(account.holderName)}</span></div><div class="modal-row"><span>Card Number</span><span>${maskedCard}</span></div><div class="modal-row"><span>Account Number</span><span>${escapeHTML(account.accountNumber || 'Available after refresh')}</span></div><div class="modal-row"><span>Available Balance</span><span>${formatINR(account.balance)}</span></div><div class="modal-row"><span>Account Status</span><span>Active</span></div><button class="modal-btn" type="button" onclick="confirmLogout()">LOG OUT</button><button class="modal-btn secondary" type="button" onclick="closeModal()">Close Profile</button>`);
+});
+function escapeHTML(value) { return String(value || '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function confirmLogout() {
+  modalContent.parentElement.classList.remove('profile-modal-box');
+  openModal('<div class="modal-icon">🔒</div><h3>Confirm Logout</h3><p class="modal-sub">Are you sure you want to log out of SmartATM?</p><button class="modal-btn" type="button" onclick="logoutUser()">Yes, Logout</button><button class="modal-btn secondary" type="button" onclick="showProfile()">No, Stay Logged In</button>');
+}
+function showProfile() { document.getElementById('profileBtn').click(); }
+function amountFromInput(id) {
+  const raw = document.getElementById(id).value;
+  const amount = Number(raw);
+  if (!raw || !Number.isSafeInteger(amount) || amount <= 0) throw new Error('Enter a positive whole-number amount in rupees.');
+  return amount;
+}
+document.getElementById('checkBalanceBtn').addEventListener('click', async () => {
+  if (!requireLogin()) return;
+  try {
+    await refreshBalance();
+    openModal(`<div class="modal-result"><div class="result-icon">💰</div><h3>Available Balance</h3><div class="modal-amount">${formatINR(account.balance)}</div><div class="modal-row"><span>Account</span><span>•••• ${account.cardNumber.slice(-4)}</span></div><div class="modal-row"><span>Status</span><span>Active</span></div><button class="modal-btn secondary" type="button" onclick="closeModal()">Close</button></div>`);
+  } catch (error) { alert(error.message); }
+});
+document.getElementById('withdrawBtn').addEventListener('click', () => { if (requireLogin()) showAmountForm('withdraw'); });
+document.getElementById('depositBtn').addEventListener('click', () => { if (requireLogin()) showAmountForm('deposit'); });
+function showAmountForm(kind, errorMsg = '') {
+  const withdraw = kind === 'withdraw';
+  const title = withdraw ? 'Cash Withdrawal' : 'Cash Deposit';
+  const icon = withdraw ? '💵' : '💳';
+  const inputId = withdraw ? 'withdrawAmount' : 'depositAmount';
+  openModal(`<div class="modal-icon">${icon}</div><h3>${title}</h3><p class="modal-sub">Enter a positive whole-number amount in rupees.</p><div class="modal-field"><label>Amount (₹)</label><input type="number" id="${inputId}" class="modal-input" placeholder="e.g. 2000" min="1" step="1"></div><div class="modal-error"></div><button class="modal-btn" type="button" onclick="submitAmount('${kind}')">${withdraw ? 'Withdraw' : 'Deposit'}</button><button class="modal-btn secondary" type="button" onclick="closeModal()">Cancel</button>`);
+  if (errorMsg) modalContent.querySelector('.modal-error').textContent = errorMsg;
+  document.getElementById(inputId).focus();
+}
+async function submitAmount(kind) {
+  const withdraw = kind === 'withdraw';
+  const inputId = withdraw ? 'withdrawAmount' : 'depositAmount';
+  let amount;
+  try { amount = amountFromInput(inputId); }
+  catch (error) { modalContent.querySelector('.modal-error').textContent = error.message; return; }
+  const button = modalContent.querySelector('.modal-btn'); button.disabled = true;
+  try {
+    const data = await api(withdraw ? '/api/withdraw' : '/api/deposit', {method:'POST', body:JSON.stringify({amount})});
+    account.balance = Number(data.balance); updateBalance(); await loadTransactions();
+    openModal(`<div class="modal-result"><div class="result-icon">✓</div><h3>${withdraw ? 'Withdrawal' : 'Deposit'} Successful</h3><div class="modal-amount">${withdraw ? '- ' : '+ '}${formatINR(amount)}</div><div class="modal-row"><span>${withdraw ? 'Remaining Balance' : 'New Balance'}</span><span>${formatINR(account.balance)}</span></div><p class="modal-sub">${withdraw ? 'Simulation only — no physical cash is dispensed.' : 'The demo account balance has been updated.'}</p><button class="modal-btn secondary" type="button" onclick="closeModal()">Done</button></div>`);
+  } catch (error) { modalContent.querySelector('.modal-error').textContent = error.message; button.disabled = false; }
+}
+document.getElementById('transferBtn').addEventListener('click', () => { if (requireLogin()) showTransferForm(); });
+function showTransferForm(errorMsg = '') {
+  openModal(`<div class="modal-icon">🔁</div><h3>Fund Transfer</h3><p class="modal-sub">Send money to another registered account.</p><div class="modal-field"><label>Recipient Account / Card Number</label><input type="text" id="recipientAccount" class="modal-input" placeholder="Enter recipient account number" maxlength="20"></div><div class="modal-field"><label>Amount (₹)</label><input type="number" id="transferAmount" class="modal-input" placeholder="e.g. 500" min="1" step="1"></div><div class="modal-error"></div><button class="modal-btn" type="button" onclick="submitTransfer()">Transfer Funds</button><button class="modal-btn secondary" type="button" onclick="closeModal()">Cancel</button>`);
+  modalContent.querySelector('.modal-error').textContent = errorMsg;
+}
+async function submitTransfer() {
+  const recipientAccount = document.getElementById('recipientAccount').value.trim();
+  let amount;
+  try { amount = amountFromInput('transferAmount'); } catch (error) { modalContent.querySelector('.modal-error').textContent = error.message; return; }
+  if (!recipientAccount) { modalContent.querySelector('.modal-error').textContent = 'Enter the recipient account or card number.'; return; }
+  if (recipientAccount.replace(/\s/g, '') === account.cardNumber) { modalContent.querySelector('.modal-error').textContent = 'You cannot transfer money to your own account.'; return; }
+  const button = modalContent.querySelector('.modal-btn'); button.disabled = true;
+  try {
+    const data = await api('/api/transfer', {method:'POST', body:JSON.stringify({recipientAccount, accountNumber:recipientAccount, amount})});
+    account.balance = Number(data.balance ?? data.senderBalance ?? account.balance); updateBalance(); await loadTransactions();
+    openModal(`<div class="modal-result"><div class="result-icon">✓</div><h3>Transfer Successful</h3><div class="modal-amount">- ${formatINR(amount)}</div><div class="modal-row"><span>Recipient</span><span>${escapeHTML(recipientAccount)}</span></div><div class="modal-row"><span>Remaining Balance</span><span>${formatINR(account.balance)}</span></div><button class="modal-btn secondary" type="button" onclick="closeModal()">Done</button></div>`);
+  } catch (error) { modalContent.querySelector('.modal-error').textContent = error.message + (error.message.toLowerCase().includes('transfer') ? '' : ' (Make sure your Flask backend has the /api/transfer endpoint.)'); button.disabled = false; }
+}
+document.getElementById('changePinBtn').addEventListener('click', () => { if (requireLogin()) showChangePinForm(); });
+function showChangePinForm(errorMsg = '') {
+  openModal(`<div class="modal-icon">🔑</div><h3>Change PIN</h3><p class="modal-sub">Update your 4-digit PIN for improved security.</p><div class="modal-field"><label>Current PIN</label><input type="password" id="oldPin" class="modal-input" maxlength="4" inputmode="numeric" autocomplete="current-password"></div><div class="modal-field"><label>New PIN</label><input type="password" id="newPin" class="modal-input" maxlength="4" inputmode="numeric" autocomplete="new-password"></div><div class="modal-field"><label>Confirm New PIN</label><input type="password" id="confirmPin" class="modal-input" maxlength="4" inputmode="numeric" autocomplete="new-password"></div><div class="modal-error"></div><button class="modal-btn" type="button" onclick="confirmChangePin()">Update PIN</button><button class="modal-btn secondary" type="button" onclick="closeModal()">Cancel</button>`);
+  modalContent.querySelector('.modal-error').textContent = errorMsg;
+  document.getElementById('oldPin').focus();
+}
+async function confirmChangePin() {
+  const currentPin = document.getElementById('oldPin').value.trim();
+  const newPin = document.getElementById('newPin').value.trim();
+  const confirmPin = document.getElementById('confirmPin').value.trim();
+  const errorBox = modalContent.querySelector('.modal-error');
+  if (!/^\d{4}$/.test(currentPin) || !/^\d{4}$/.test(newPin) || !/^\d{4}$/.test(confirmPin)) { errorBox.textContent = 'All PIN fields must contain exactly 4 digits.'; return; }
+  if (newPin !== confirmPin) { errorBox.textContent = 'PIN confirmation does not match.'; return; }
+  if (newPin === currentPin) { errorBox.textContent = 'Your new PIN must be different from your current PIN.'; return; }
+  const button = modalContent.querySelector('button.modal-btn'); button.disabled = true; errorBox.textContent = 'Updating PIN…';
+  try {
+    const result = await api('/api/change-pin', {method:'POST', body:JSON.stringify({currentPin: currentPin, oldPin: currentPin, pin: currentPin, newPin: newPin, confirmPin: confirmPin})});
+    account.pin = newPin;
+    openModal('<div class="modal-result"><div class="result-icon">✓</div><h3>PIN Changed Successfully</h3><p class="modal-sub">Your new PIN has been saved. Use it the next time you log in.</p><button class="modal-btn secondary" type="button" onclick="closeModal()">Done</button></div>');
+  } catch (error) { errorBox.textContent = error.message || 'PIN change failed. Ensure app.py is running the updated /api/change-pin route.'; button.disabled = false; }
+}
+// Currency Converter: opens inside index.html; no backend or database changes needed.
+document.getElementById('currencyConverterBtn').addEventListener('click', showCurrencyConverter);
+function showCurrencyConverter() {
+  openModal(`<div class="modal-icon">💱</div>
+    <h3>Currency Converter</h3>
+    <p class="modal-sub">Convert between Indian Rupee, US Dollar, Euro, British Pound and Japanese Yen using online exchange rates.</p>
+    <div class="modal-field"><label for="currencyAmount">Amount</label><input type="number" id="currencyAmount" class="modal-input" min="0.000001" step="any" value="1" placeholder="Enter amount"></div>
+    <div class="modal-field"><label for="currencyFrom">From Currency</label><select id="currencyFrom" class="modal-input"><option value="INR">🇮🇳 Indian Rupee (INR)</option><option value="USD">🇺🇸 US Dollar (USD)</option><option value="EUR">🇪🇺 Euro (EUR)</option><option value="GBP">🇬🇧 British Pound (GBP)</option><option value="JPY">🇯🇵 Japanese Yen (JPY)</option></select></div>
+    <div class="modal-field"><label for="currencyTo">To Currency</label><select id="currencyTo" class="modal-input"><option value="USD">🇺🇸 US Dollar (USD)</option><option value="INR">🇮🇳 Indian Rupee (INR)</option><option value="EUR">🇪🇺 Euro (EUR)</option><option value="GBP">🇬🇧 British Pound (GBP)</option><option value="JPY">🇯🇵 Japanese Yen (JPY)</option></select></div>
+    <div id="currencyError" class="modal-error"></div>
+    <div id="currencyResult" class="modal-result" style="display:none;margin-bottom:16px;"><h3 id="currencyResultHeading">Converted Amount</h3><div id="currencyResultValue" class="modal-amount"></div><p id="currencyRateNote" class="modal-sub" style="margin:10px 0 0;"></p></div>
+    <button id="currencyConvertSubmit" class="modal-btn" type="button" onclick="convertCurrencyInModal()">Convert Currency →</button>
+    <button class="modal-btn secondary" type="button" onclick="closeModal()">Close</button>`);
+  document.getElementById('currencyAmount').focus();
+}
+function formatConvertedCurrency(value, currency) {
+  return new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: currency === 'JPY' ? 0 : 4 }).format(value);
+}
+async function convertCurrencyInModal() {
+  const amountInput = document.getElementById('currencyAmount');
+  const from = document.getElementById('currencyFrom').value;
+  const to = document.getElementById('currencyTo').value;
+  const errorBox = document.getElementById('currencyError');
+  const resultBox = document.getElementById('currencyResult');
+  const button = document.getElementById('currencyConvertSubmit');
+  const amount = Number(amountInput.value);
+
+  errorBox.textContent = '';
+  resultBox.style.display = 'none';
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    errorBox.textContent = 'Please enter an amount greater than zero.';
+    return;
+  }
+
+  if (from === to) {
+    document.getElementById('currencyResultHeading').textContent =
+      `${formatConvertedCurrency(amount, from)} equals`;
+    document.getElementById('currencyResultValue').textContent =
+      formatConvertedCurrency(amount, to);
+    document.getElementById('currencyRateNote').textContent =
+      'Both currencies are the same. Exchange rate: 1 to 1.';
+    resultBox.style.display = 'block';
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Converting...';
+
+  try {
+    const url =
+      `https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(from)}&symbols=${encodeURIComponent(to)}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error('Could not get the exchange rate. Please try again.');
+    }
+
+    const data = await response.json();
+    const rate = data.rates && data.rates[to];
+
+    if (typeof rate !== 'number' || !Number.isFinite(rate)) {
+      throw new Error('Exchange rate not available for these currencies.');
+    }
+
+    const converted = amount * rate;
+
+    document.getElementById('currencyResultHeading').textContent =
+      `${formatConvertedCurrency(amount, from)} equals`;
+    document.getElementById('currencyResultValue').textContent =
+      formatConvertedCurrency(converted, to);
+    document.getElementById('currencyRateNote').textContent =
+      `Exchange rate: 1 ${from} = ${rate} ${to}. Rate date: ${data.date || 'latest available'}. Rates are indicative and may differ from your bank's rates.`;
+
+    resultBox.style.display = 'block';
+  } catch (error) {
+    errorBox.textContent =
+      error.message || 'Conversion failed. Check your internet connection.';
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Convert Currency →';
+  }
+}
+
+// Start logged out with a displayed balance of ₹0. The server remains the source of truth.
+account.balance = 0; account.loggedIn = false; updateBalance();
+document.body.classList.remove('logged-in');
+</script>
+
+</body>
+</html>
