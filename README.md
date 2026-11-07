@@ -129,7 +129,7 @@ This project is developed as an academic project to demonstrate the concepts of:
 - Data Management and Transactions
 
 ## 👩‍💻 Author
-
+**Medha Parul**
 **Shanchita Kumari**
 
 ## 📄 License
